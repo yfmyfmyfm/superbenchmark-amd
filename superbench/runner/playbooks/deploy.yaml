@@ -82,12 +82,21 @@
           dest: '{{ workspace }}/.ssh/key'
           mode: '400'
       become: yes
-    - name: Trying to Login Registry
+    - name: Login to OCIR using instance principal
       shell: |
-        docker login {{ docker_registry }} --username {{ docker_username }} --password {{ docker_password }}
+        oci raw-request --auth instance_principal \
+        --http-method GET \
+        --target-uri https://phx.ocir.io/20180419/docker/token \
+        | jq -r '.data.token' \
+        | docker login phx.ocir.io -u BEARER_TOKEN --password-stdin
       become: yes
-      when: docker_registry is defined
-      ignore_errors: true
+      when: docker_image is defined
+    # - name: Trying to Login Registry
+    #   shell: |
+    #     docker login {{ docker_registry }} --username {{ docker_username }} --password {{ docker_password }}
+    #   become: yes
+    #   when: docker_registry is defined
+    #   ignore_errors: true
     - name: Pulling Container Image
       shell: |
         docker pull {{ docker_image }}
