@@ -17,6 +17,7 @@ ROCM_VER ?= $(shell hipconfig -R | grep -oP '\d+\.\d+\.\d+' || echo "0.0.0")
 NUM_MAKE_JOBS ?= $(shell nproc --ignore=2)
 
 .PHONY: all cuda_with_msccl cuda rocm common cuda_cutlass cuda_bandwidthTest cuda_nccl_tests cuda_perftest cuda_msccl rocm_perftest fio rocm_rccl_tests rocm_rocblas rocm_bandwidthTest gpcnet cuda_gpuburn cpu_stream cpu_hpl directx_amf_encoding_latency directx_amd rocm_hipblaslt megatron_lm megatron_deepspeed apex_rocm nvbandwidth rocm_megatron_lm
+# .PHONY: apex_rocm nvbandwidth rocm_megatron_lm
 
 # Build targets.
 all: cuda rocm
@@ -165,13 +166,13 @@ rocm_hipblaslt: sb_micro_path
 		cp -v $(SB_MICRO_PATH)/third_party/hipBLASLt/build/release/clients/staging/hipblaslt-bench $(SB_MICRO_PATH)/bin/;  \
 	fi
 
-# Build hipBusBandwidth.
+# Build rocm_bandwidth_test.
 # HIP is released with rocm, like rocm-4.2.0 and so on.
 # The version we use is the released tag which is consistent with the rocm version in the environment or docker.
 rocm_bandwidthTest: sb_micro_path
-	git clone -b ${ROCM_VER} https://github.com/ROCm-Developer-Tools/HIP.git
-	cd ./HIP/samples/1_Utils/hipBusBandwidth/ && mkdir -p build && cd build && cmake .. && make
-	cp -v ./HIP/samples/1_Utils/hipBusBandwidth/build/hipBusBandwidth $(SB_MICRO_PATH)/bin/
+	git clone -b ${ROCM_VER} https://github.com/ROCm/rocm_bandwidth_test.git
+	cd ./rocm_bandwidth_test && mkdir -p build && cd build && cmake .. && make
+	cp -v ./rocm_bandwidth_test/build/rocm-bandwidth-test $(SB_MICRO_PATH)/bin/
 
 # Build GPCNET from commit c56fd9.
 gpcnet: sb_micro_path
@@ -256,16 +257,18 @@ apex_rocm:
 		git clone https://github.com/ROCmSoftwarePlatform/apex.git ; \
 	fi
 	cd apex && \
-	if [ "$$(expr $(TORCH_MAJOR_VERSION) \> 2)" -eq 1 ] && [ "$$(expr $(TORCH_MINOR_VERSION) \> 1)" -eq 1 ]; then \
-		git checkout master ; \
-	elif [ "$$(expr $(TORCH_MAJOR_VERSION) == 2)" -eq 1 ] && [ "$$(expr $(TORCH_MINOR_VERSION) == 1)" -eq 1 ]; then \
-		git checkout release/1.1.0 ; \
-	elif [ "$$(expr $(TORCH_MAJOR_VERSION) == 2)" -eq 1 ] && [ "$$(expr $(TORCH_MINOR_VERSION) == 0)" -eq 1 ]; then \
-		git checkout release/1.0.0 ; \
-	elif [ "$$(expr $(TORCH_MAJOR_VERSION) == 1)" -eq 1 ]; then \
-	    git checkout release/1.0.0 ; \
-	fi
-	pip install -v --disable-pip-version-check --no-build-isolation --config-settings "--build-option=--cpp_ext" --config-settings "--build-option=--cuda_ext" ./apex
+	git fetch origin && \
+	git checkout master ;
+# 	if [ "$$(expr $(TORCH_MAJOR_VERSION) == 2)" -eq 1 ] && [ "$$(expr $(TORCH_MINOR_VERSION) \> 1)" -eq 1 ]; then \
+# 		git checkout master ; \
+# 	elif [ "$$(expr $(TORCH_MAJOR_VERSION) == 2)" -eq 1 ] && [ "$$(expr $(TORCH_MINOR_VERSION) == 1)" -eq 1 ]; then \
+# 		git checkout release/1.1.0 ; \
+# 	elif [ "$$(expr $(TORCH_MAJOR_VERSION) == 2)" -eq 1 ] && [ "$$(expr $(TORCH_MINOR_VERSION) == 0)" -eq 1 ]; then \
+# 		git checkout release/1.0.0 ; \
+# 	elif [ "$$(expr $(TORCH_MAJOR_VERSION) == 1)" -eq 1 ]; then \
+# 	    git checkout release/1.0.0 ; \
+# 	fi
+	pip install -v --disable-pip-version-check --no-build-isolation --config-settings "--build-option=--cpp_ext" --config-settings "--build-option=--cuda_ext" .
 
 # Build MSCCL for CUDA
 cuda_msccl: sb_micro_path

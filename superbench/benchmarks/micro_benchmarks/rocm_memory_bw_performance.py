@@ -21,7 +21,7 @@ class RocmMemBwBenchmark(MemBwBenchmark):
         """
         super().__init__(name, parameters)
 
-        self._bin_name = 'hipBusBandwidth'
+        self._bin_name = 'rocm_bandwidth_test'
         self._mem_types = ['htod', 'dtoh']
         self._parse_logline_map = {'htod': 'H2D_Bandwidth', 'dtoh': 'D2H_Bandwidth'}
 

@@ -18,7 +18,7 @@ class RocmMemBwTest(BenchmarkTestCase, unittest.TestCase):
         """Hook method for setting up class fixture before running tests in the class."""
         super().setUpClass()
         cls.createMockEnvs(cls)
-        cls.createMockFiles(cls, ['bin/hipBusBandwidth'])
+        cls.createMockFiles(cls, ['bin/rocm_bandwidth_test'])
 
     @decorator.load_data('tests/data/rocm_memory_h2d_bw.log')
     @decorator.load_data('tests/data/rocm_memory_d2h_bw.log')
@@ -41,7 +41,7 @@ class RocmMemBwTest(BenchmarkTestCase, unittest.TestCase):
         assert (benchmark.type == BenchmarkType.MICRO)
 
         # Check command list
-        expected_command = ['hipBusBandwidth --h2d', 'hipBusBandwidth --d2h']
+        expected_command = ['rocm_bandwidth_test --h2d', 'rocm_bandwidth_test --d2h']
         for i in range(len(expected_command)):
             commnad = benchmark._bin_name + benchmark._commands[i].split(benchmark._bin_name)[1]
             assert (commnad == expected_command[i])
