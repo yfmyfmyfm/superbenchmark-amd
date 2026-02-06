@@ -33,3 +33,6 @@
 [submodule "third_party/nvbandwidth"]
 	path = third_party/nvbandwidth
 	url = https://github.com/NVIDIA/nvbandwidth.git
+[submodule "third_party/rocm-libraries"]
+	path = third_party/rocm-libraries
+	url = https://github.com/ROCm/rocm-libraries.git
