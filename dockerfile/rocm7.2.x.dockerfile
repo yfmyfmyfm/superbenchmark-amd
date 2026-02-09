@@ -1,6 +1,7 @@
 ARG BASE_IMAGE=rocm/pytorch:rocm7.2_ubuntu22.04_py3.10_pytorch_release_2.8.0
 #rocm/pytorch:rocm7.2_ubuntu22.04_py3.12_pytorch_release_2.8.0
-
+ARG AMD_GPU_ARCH="gfx942"
+#RUN echo ${AMD_GPU_ARCH}
 FROM ${BASE_IMAGE}
 
 # OS:
@@ -19,7 +20,7 @@ FROM ${BASE_IMAGE}
 #   - mlc: v3.12
 
 LABEL maintainer="SuperBench"
-
+#RUN echo ${AMD_GPU_ARCH}
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && \
     apt-get -q install -y --no-install-recommends  \
@@ -175,4 +176,22 @@ RUN echo PATH="$PATH" > /etc/environment \
 WORKDIR ${SB_HOME}
 
 ADD third_party third_party
+#RUN echo  ${AMD_GPU_ARCH}
+RUN make  ROCM_VER=rocm-7.2.0 AMD_GPU_ARCH=gfx950  -C third_party rocm -o cpu_hpl -o cpu_stream 
 
+# Install transformer_engine
+RUN cd /tmp \
+    && wget https://repo.radeon.com/rocm/manylinux/rocm-rel-7.2/transformer_engine-2.4.0-py3-none-any.whl \
+    && wget https://repo.radeon.com/rocm/manylinux/rocm-rel-7.2/transformer_engine_rocm-2.4.0-py3-none-manylinux_2_28_x86_64.whl \
+    && wget https://repo.radeon.com/rocm/manylinux/rocm-rel-7.2/transformer_engine_torch-2.4.0.tar.gz \
+    && pip install --no-build-isolation ./transformer_engine-2.4.0-py3-none-any.whl ./transformer_engine_rocm-2.4.0-py3-none-manylinux_2_28_x86_64.whl ./transformer_engine_torch-2.4.0.tar.gz \
+    && rm *.whl  *.tar.gz
+
+ADD . .
+ENV USE_HIP_DATATYPE=1
+ENV USE_HIPBLAS_COMPUTETYPE=1
+RUN python3 -m pip install uv \
+    && uv  pip install --upgrade pip wheel setuptools==65.7 \
+    && uv pip install --no-build-isolation .[amdworker]  
+#    CXX=/opt/rocm/bin/hipcc make cppbuild  && \
+#    make postinstall 
