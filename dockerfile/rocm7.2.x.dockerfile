@@ -1,6 +1,6 @@
 ARG BASE_IMAGE=rocm/pytorch:rocm7.2_ubuntu22.04_py3.10_pytorch_release_2.8.0
 #rocm/pytorch:rocm7.2_ubuntu22.04_py3.12_pytorch_release_2.8.0
-ARG AMD_GPU_ARCH="gfx942"
+ARG GPU_ARCH="gfx942"
 #RUN echo ${AMD_GPU_ARCH}
 FROM ${BASE_IMAGE}
 
@@ -177,7 +177,7 @@ WORKDIR ${SB_HOME}
 
 ADD third_party third_party
 #RUN echo  ${AMD_GPU_ARCH}
-RUN make  ROCM_VER=rocm-7.2.0 AMD_GPU_ARCH=gfx950  -C third_party rocm -o cpu_hpl -o cpu_stream 
+RUN make  ROCM_VER=rocm-7.2.0 AMD_GPU_ARCH=${GPU_ARCH}  -C third_party rocm -o cpu_hpl -o cpu_stream 
 
 # Install transformer_engine
 RUN cd /tmp \
@@ -192,6 +192,6 @@ ENV USE_HIP_DATATYPE=1
 ENV USE_HIPBLAS_COMPUTETYPE=1
 RUN python3 -m pip install uv \
     && uv  pip install --upgrade pip wheel setuptools==65.7 \
-    && uv pip install --no-build-isolation .[amdworker]  
-#    CXX=/opt/rocm/bin/hipcc make cppbuild  && \
-#    make postinstall 
+    && uv pip install --no-build-isolation .[amdworker] \ 
+    && CXX=/opt/rocm/bin/hipcc make cppbuild \
+    && make postinstall 
