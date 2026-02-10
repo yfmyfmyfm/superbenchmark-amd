@@ -9,7 +9,7 @@ MPI_HOME="${MPI_HOME:-/usr/local/mpi}"
 SB_MICRO_PATH="${SB_MICRO_PATH:-/usr/local}"
 
 for dir in micro_benchmarks/*/ ; do
-    if [ $dir != "micro_benchmarks/gpu_stream/" ] || [ $CXX != "/opt/rocm/bin/hipcc" ];  then	
+#    if [ $dir != "micro_benchmarks/gpu_stream/" ] || [ $CXX != "/opt/rocm/bin/hipcc" ];  then	
     	if [ -f $dir/CMakeLists.txt ]; then
         	SOURCE_DIR=$dir
         	BUILD_ROOT=$dir/build
@@ -18,5 +18,5 @@ for dir in micro_benchmarks/*/ ; do
         	cmake --build $BUILD_ROOT
         	cmake --install $BUILD_ROOT
     	fi
-    fi	
+#    fi	
 done

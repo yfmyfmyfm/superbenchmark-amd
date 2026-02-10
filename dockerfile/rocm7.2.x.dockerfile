@@ -192,6 +192,7 @@ ENV USE_HIP_DATATYPE=1
 ENV USE_HIPBLAS_COMPUTETYPE=1
 RUN python3 -m pip install uv \
     && uv  pip install --upgrade pip wheel setuptools==65.7 \
-    && uv pip install --no-build-isolation .[amdworker] \ 
+    && uv pip install --no-build-isolation .[amdworker] \
+    &&  cp superbench/benchmarks/micro_benchmarks/gpu_stream/hip/*.* superbench/benchmarks/micro_benchmarks/gpu_stream/ \
     && CXX=/opt/rocm/bin/hipcc make cppbuild \
     && make postinstall 
