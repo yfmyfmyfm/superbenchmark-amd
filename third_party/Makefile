@@ -25,8 +25,8 @@ all: cuda rocm
 # msccl: api change in cudaStreamUpdateCaptureDependencies
 cuda_with_msccl: cuda cuda_msccl
 cuda: common cuda_cutlass cuda_bandwidthTest cuda_nccl_tests cuda_perftest gpcnet cuda_gpuburn megatron_lm megatron_deepspeed nvbandwidth
-rocm: common rocm_perftest rocm_rccl_tests rocm_rocblas  rocm_hipblaslt
-#	rocm_bandwidthTest rocm_hipblaslt megatron_deepspeed apex_rocm rocm_megatron_lm
+rocm: common rocm_perftest rocm_rccl_tests rocm_rocblas  rocm_hipblaslt rocm_bandwidthTest
+#	megatron_deepspeed apex_rocm rocm_megatron_lm
 cpu: common cpu_perftest
 common: fio cpu_stream
 
@@ -167,7 +167,18 @@ rocm_hipblaslt: sb_micro_path
 # Build hipBusBandwidth.
 # HIP is released with rocm, like rocm-4.2.0 and so on.
 # The version we use is the released tag which is consistent with the rocm version in the environment or docker.
-#rocm_bandwidthTest: sb_micro_path
+rocm_bandwidthTest: sb_micro_path
+	apt-get install rocm-bandwidth-test
+#       git clone https://github.com/ROCm/rocm_bandwidth_test.git  
+#       cd rocm_bandwidth_test 
+#       git submodule update --init --recursive
+#       mkdir build 
+#       cd build
+#       cmake -DCMAKE_BUILD_TYPE="Debug | Release" .. \
+        -DAMD_APP_STANDALONE_BUILD_PACKAGE=OFF \
+        -DAMD_APP_ROCM_BUILD_PACKAGE=ON 
+#       cmake --build .
+#       cmake --install . --prefix  $(SB_MICRO_PATH)/bin
 #	git clone -b ${ROCM_VER} https://github.com/ROCm-Developer-Tools/HIP.git
 #	cd ./HIP/samples/1_Utils/hipBusBandwidth/ && mkdir -p build && cd build && cmake .. && make
 #	cp -v ./HIP/samples/1_Utils/hipBusBandwidth/build/hipBusBandwidth $(SB_MICRO_PATH)/bin/
