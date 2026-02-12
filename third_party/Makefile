@@ -8,6 +8,8 @@ HIP_HOME ?= /opt/rocm/hip
 RCCL_HOME ?= /opt/rocm/rccl
 HPCX_HOME ?= /opt/hpcx
 ROCM_PATH ?= /opt/rocm
+#build for MI300X  gfx942  , MI35XX gfx950
+AMD_GPU_ARCH ?=gfx942
 
 CUDA_VER ?= $(shell nvcc --version | grep 'release' | awk '{print $$6}' | cut -c2- | cut -d '.' -f1-2)
 ROCBLAS_BRANCH ?= rocm-$(shell dpkg -l | grep 'rocm-dev ' | awk '{print $$3}' | cut -d '.' -f1-3)
@@ -16,14 +18,15 @@ ROCM_VER ?= $(shell hipconfig -R | grep -oP '\d+\.\d+\.\d+' || echo "0.0.0")
 
 NUM_MAKE_JOBS ?= $(shell nproc --ignore=2)
 
-.PHONY: all cuda_with_msccl cuda rocm common cuda_cutlass cuda_bandwidthTest cuda_nccl_tests cuda_perftest cuda_msccl rocm_perftest fio rocm_rccl_tests rocm_rocblas rocm_bandwidthTest gpcnet cuda_gpuburn cpu_stream cpu_hpl directx_amf_encoding_latency directx_amd rocm_hipblaslt megatron_lm megatron_deepspeed apex_rocm nvbandwidth rocm_megatron_lm
+.PHONY: all cuda_with_msccl cuda rocm common cuda_cutlass cuda_bandwidthTest cuda_nccl_tests cuda_perftest cuda_msccl rocm_perftest fio rocm_rccl_tests rocm_rocblas  gpcnet cuda_gpuburn cpu_stream cpu_hpl directx_amf_encoding_latency rocm_hipblaslt megatron_lm megatron_deepspeed  nvbandwidth 
 
 # Build targets.
 all: cuda rocm
 # msccl: api change in cudaStreamUpdateCaptureDependencies
 cuda_with_msccl: cuda cuda_msccl
 cuda: common cuda_cutlass cuda_bandwidthTest cuda_nccl_tests cuda_perftest gpcnet cuda_gpuburn megatron_lm megatron_deepspeed nvbandwidth
-rocm: common rocm_perftest rocm_rccl_tests rocm_rocblas rocm_bandwidthTest rocm_hipblaslt megatron_deepspeed apex_rocm rocm_megatron_lm
+rocm: common rocm_perftest rocm_rccl_tests rocm_rocblas  rocm_hipblaslt rocm_bandwidthTest
+#	megatron_deepspeed apex_rocm rocm_megatron_lm
 cpu: common cpu_perftest
 common: fio cpu_stream
 
@@ -120,7 +123,7 @@ ifneq (,$(wildcard perftest/autogen.sh))
 endif
 rocm_perftest:
 ifneq (,$(wildcard perftest/autogen.sh))
-	cd perftest && ./autogen.sh && ./configure --enable-rocm --with-rocm=/opt/rocm --prefix=$(SB_MICRO_PATH) && make -j && make install
+	cd perftest && ./autogen.sh && ./configure --enable-rocm --with-rocm=/opt/rocm --prefix=$(SB_MICRO_PATH)  CFLAGS=-D__HIP_PLATFORM_AMD__ CXXFLAGS=-D__HIP_PLATFORM_AMD__ && make -j && make install
 endif
 cpu_perftest:
 ifneq (,$(wildcard perftest/autogen.sh))
@@ -133,11 +136,12 @@ ifneq (,$(wildcard fio/Makefile))
 	cd ./fio && ./configure --prefix=$(SB_MICRO_PATH) --disable-native && make -j && make install
 endif
 
-# Build rccl-tests from commit 46375b1 of default branch.
+# Build rccl-tests from commit 40b1b17901370a7880d4a56854b5361c89f8d324  of default branch.
+# For next ROCm release, should use ROCm/rocm-systems
 rocm_rccl_tests: sb_micro_path
 ifneq (, $(wildcard rccl-tests/Makefile))
 	cd ./rccl-tests && make MPI=1 MPI_HOME=$(MPI_HOME) -j
-	cp -v -r ./rccl-tests/build/* $(SB_MICRO_PATH)/bin/
+	cp -v -r ./rccl-tests/build/*_perf $(SB_MICRO_PATH)/bin/
 endif
 
 # Build rocblas-bench.
@@ -146,11 +150,8 @@ endif
 # Since it takes several hours to build, avoid to build again if rocblas-bench exsists.
 rocm_rocblas: sb_micro_path
 	@if [ ! -e $(SB_MICRO_PATH)/bin/rocblas-bench ] && [ -z `which rocblas-bench` ]; then \
-		if [ -d rocBLAS ]; then rm -rf rocBLAS; fi; \
-		git clone -b ${ROCBLAS_BRANCH} https://github.com/ROCmSoftwarePlatform/rocBLAS.git ./rocBLAS; \
-		sed -i 's|#include "gemm.hpp"|#include "Tensile/gemm.hpp"|' rocBLAS/clients/benchmarks/../../library/src/blas3/rocblas_trtri.hpp; \
-		cd ./rocBLAS && ./install.sh --dependencies --clients-only; \
-		cp -v $(SB_MICRO_PATH)/third_party/rocBLAS/build/release/clients/staging/rocblas-bench $(SB_MICRO_PATH)/bin/; \
+		cd ./rocm-libraries/projects/rocblas && ./install.sh -dc -a $(AMD_GPU_ARCH); \
+		cp -v $(SB_MICRO_PATH)/third_party/rocm-libraries/projects/rocblas/build/release/clients/staging/rocblas-bench $(SB_MICRO_PATH)/bin/; \
 	fi
 
 # Build hipblaslt-bench.
@@ -159,19 +160,28 @@ rocm_rocblas: sb_micro_path
 # Since it takes several hours to build, avoid to build again if hipblaslt-bench exsists.
 rocm_hipblaslt: sb_micro_path
 	@if [ ! -e $(SB_MICRO_PATH)/bin/hipblaslt-bench ] && [ -z `which hipblaslt-bench` ]; then \
-		if [ -d hipBLASLt ]; then rm -rf hipBLASLt; fi; \
-		git clone -b ${HIPBLASLT_BRANCH} https://github.com/ROCmSoftwarePlatform/hipBLASLt.git ./hipBLASLt; \
-		cd ./hipBLASLt && ./install.sh -dc; \
-		cp -v $(SB_MICRO_PATH)/third_party/hipBLASLt/build/release/clients/staging/hipblaslt-bench $(SB_MICRO_PATH)/bin/;  \
+		cd ./rocm-libraries/projects/hipblaslt && pip install -r tensilelite/requirements.txt &&  ./install.sh -dc -a $(AMD_GPU_ARCH) --skip_rocroller; \
+		cp -v $(SB_MICRO_PATH)/third_party/rocm-libraries/projects/hipblaslt/build/release/clients/hipblaslt-bench $(SB_MICRO_PATH)/bin/;  \
 	fi
 
 # Build hipBusBandwidth.
 # HIP is released with rocm, like rocm-4.2.0 and so on.
 # The version we use is the released tag which is consistent with the rocm version in the environment or docker.
 rocm_bandwidthTest: sb_micro_path
-	git clone -b ${ROCM_VER} https://github.com/ROCm-Developer-Tools/HIP.git
-	cd ./HIP/samples/1_Utils/hipBusBandwidth/ && mkdir -p build && cd build && cmake .. && make
-	cp -v ./HIP/samples/1_Utils/hipBusBandwidth/build/hipBusBandwidth $(SB_MICRO_PATH)/bin/
+	apt-get install rocm-bandwidth-test
+#       git clone https://github.com/ROCm/rocm_bandwidth_test.git  
+#       cd rocm_bandwidth_test 
+#       git submodule update --init --recursive
+#       mkdir build 
+#       cd build
+#       cmake -DCMAKE_BUILD_TYPE="Debug | Release" .. \
+        -DAMD_APP_STANDALONE_BUILD_PACKAGE=OFF \
+        -DAMD_APP_ROCM_BUILD_PACKAGE=ON 
+#       cmake --build .
+#       cmake --install . --prefix  $(SB_MICRO_PATH)/bin
+#	git clone -b ${ROCM_VER} https://github.com/ROCm-Developer-Tools/HIP.git
+#	cd ./HIP/samples/1_Utils/hipBusBandwidth/ && mkdir -p build && cd build && cmake .. && make
+#	cp -v ./HIP/samples/1_Utils/hipBusBandwidth/build/hipBusBandwidth $(SB_MICRO_PATH)/bin/
 
 # Build GPCNET from commit c56fd9.
 gpcnet: sb_micro_path
@@ -213,14 +223,14 @@ ifneq (,$(wildcard stream-tests/Makefile))
 endif
 
 # Build AMD Encoder Latency Test
-directx_amf_encoding_latency:
-	@if not exist "AMF" (git clone -b v1.4.29 https://github.com/GPUOpen-LibrariesAndSDKs/AMF.git)
-	@if exist "AMF\amf\public\samples\CPPSamples_vs2019.sln" ( \
-		curl -L -o vs_buildtools.exe https://aka.ms/vs/16/release/vs_buildtools.exe && echo "Downloaded vs_buildtools.exe" && \
-		start /wait vs_buildtools.exe --quiet --wait --norestart --nocache --installPath C:/temp/BuildTools --add Microsoft.VisualStudio.Workload.VCTools --add Microsoft.VisualStudio.Component.VC.ATLMFC --includeRecommended  && echo "Installed VS Build Tools" && \
-		del vs_buildtools.exe && echo "Deleted vs_buildtools.exe" && \
-		"C:\temp\BuildTools\MSBuild\Current\Bin\MSBuild.exe" "AMF\amf\public\samples\CPPSamples_vs2019.sln" /t:EncoderLatency /p:Platform=x64 /p:Configuration=Release /p:OutDir="%SB_MICRO_PATH%\bin" \
-	)
+#directx_amf_encoding_latency:
+#	@if not exist "AMF" (git clone -b v1.4.29 https://github.com/GPUOpen-LibrariesAndSDKs/AMF.git)
+#	@if exist "AMF\amf\public\samples\CPPSamples_vs2019.sln" ( \
+#		curl -L -o vs_buildtools.exe https://aka.ms/vs/16/release/vs_buildtools.exe && echo "Downloaded vs_buildtools.exe" && \
+#		start /wait vs_buildtools.exe --quiet --wait --norestart --nocache --installPath C:/temp/BuildTools --add Microsoft.VisualStudio.Workload.VCTools --add Microsoft.VisualStudio.Component.VC.ATLMFC --includeRecommended  && echo "Installed VS Build Tools" && \
+#		del vs_buildtools.exe && echo "Deleted vs_buildtools.exe" && \
+#		"C:\temp\BuildTools\MSBuild\Current\Bin\MSBuild.exe" "AMF\amf\public\samples\CPPSamples_vs2019.sln" /t:EncoderLatency /p:Platform=x64 /p:Configuration=Release /p:OutDir="%SB_MICRO_PATH%\bin" \
+#	)
 
 # Install requirements for Megatron-LM
 megatron_lm:
@@ -235,37 +245,37 @@ megatron_deepspeed:
 	python -m pip install --no-cache-dir -r requirements.txt && \
 	python -m pip install DeepSpeed
 
-rocm_megatron_lm:
-	cd Megatron && mkdir -p rocm && cd rocm && \
-	if [ ! -d "Megatron-LM" ]; then \
-		git clone -b rocm_dev https://github.com/ROCm/Megatron-LM.git ; \
-	fi
-	cp Megatron/rocm/Megatron-LM/examples/deepseek_v2/pretrain_deepseek.py Megatron/rocm/Megatron-LM/
-	git clone https://github.com/caaatch22/grouped_gemm.git &&\
-    	cd grouped_gemm &&\
-    	git checkout 8a9b438 &&\
-    	git submodule update --init --recursive &&\
-    	pip install .
+#rocm_megatron_lm:
+#	cd Megatron && mkdir -p rocm && cd rocm && \
+#	if [ ! -d "Megatron-LM" ]; then \
+#		git clone -b rocm_dev https://github.com/ROCm/Megatron-LM.git ; \
+#	fi
+#	cp Megatron/rocm/Megatron-LM/examples/deepseek_v2/pretrain_deepseek.py Megatron/rocm/Megatron-LM/
+#	git clone https://github.com/caaatch22/grouped_gemm.git &&\
+#    	cd grouped_gemm &&\
+#    	git checkout 8a9b438 &&\
+#    	git submodule update --init --recursive &&\
+#    	pip install .
 
-# Instal apex of ROCm due to dependency of Megatron
-apex_rocm:
-	$(eval TORCH_VERSION ?= $(shell python -c "import torch; print(torch.__version__)"))
-	$(eval TORCH_MAJOR_VERSION ?= $(word 1,$(subst ., ,$(TORCH_VERSION))))
-	$(eval TORCH_MINOR_VERSION ?= $(word 2,$(subst ., ,$(TORCH_VERSION))))
-	if [ ! -d "apex" ]; then \
-		git clone https://github.com/ROCmSoftwarePlatform/apex.git ; \
-	fi
-	cd apex && \
-	if [ "$$(expr $(TORCH_MAJOR_VERSION) \> 2)" -eq 1 ] && [ "$$(expr $(TORCH_MINOR_VERSION) \> 1)" -eq 1 ]; then \
-		git checkout master ; \
-	elif [ "$$(expr $(TORCH_MAJOR_VERSION) == 2)" -eq 1 ] && [ "$$(expr $(TORCH_MINOR_VERSION) == 1)" -eq 1 ]; then \
-		git checkout release/1.1.0 ; \
-	elif [ "$$(expr $(TORCH_MAJOR_VERSION) == 2)" -eq 1 ] && [ "$$(expr $(TORCH_MINOR_VERSION) == 0)" -eq 1 ]; then \
-		git checkout release/1.0.0 ; \
-	elif [ "$$(expr $(TORCH_MAJOR_VERSION) == 1)" -eq 1 ]; then \
-	    git checkout release/1.0.0 ; \
-	fi
-	pip install -v --disable-pip-version-check --no-build-isolation --config-settings "--build-option=--cpp_ext" --config-settings "--build-option=--cuda_ext" ./apex
+# Instal apex of ROCm due to dependency of Megatron, ROCm PyTorch docker already has apex installed
+#apex_rocm:
+#	$(eval TORCH_VERSION ?= $(shell python -c "import torch; print(torch.__version__)"))
+#	$(eval TORCH_MAJOR_VERSION ?= $(word 1,$(subst ., ,$(TORCH_VERSION))))
+#	$(eval TORCH_MINOR_VERSION ?= $(word 2,$(subst ., ,$(TORCH_VERSION))))
+#	if [ ! -d "apex" ]; then \
+#		git clone https://github.com/ROCmSoftwarePlatform/apex.git ; \
+#	fi
+#	cd apex && \
+#	if [ "$$(expr $(TORCH_MAJOR_VERSION) \> 2)" -eq 1 ] && [ "$$(expr $(TORCH_MINOR_VERSION) \> 1)" -eq 1 ]; then \
+#		git checkout master ; \
+#	elif [ "$$(expr $(TORCH_MAJOR_VERSION) == 2)" -eq 1 ] && [ "$$(expr $(TORCH_MINOR_VERSION) == 1)" -eq 1 ]; then \
+#		git checkout release/1.1.0 ; \
+#	elif [ "$$(expr $(TORCH_MAJOR_VERSION) == 2)" -eq 1 ] && [ "$$(expr $(TORCH_MINOR_VERSION) == 0)" -eq 1 ]; then \
+#		git checkout release/1.0.0 ; \
+#	elif [ "$$(expr $(TORCH_MAJOR_VERSION) == 1)" -eq 1 ]; then \
+#	    git checkout release/1.0.0 ; \
+#	fi
+#	pip install -v --disable-pip-version-check --no-build-isolation --config-settings "--build-option=--cpp_ext" --config-settings "--build-option=--cuda_ext" ./apex
 
 # Build MSCCL for CUDA
 cuda_msccl: sb_micro_path
