@@ -1,6 +1,6 @@
-ARG BASE_IMAGE=rocm/pytorch:rocm7.2_ubuntu22.04_py3.10_pytorch_release_2.8.0
-#rocm/pytorch:rocm7.2_ubuntu22.04_py3.12_pytorch_release_2.8.0
-ARG GPU_ARCH="gfx942"
+ARG BASE_IMAGE=rocm/pytorch:rocm7.1.1_ubuntu22.04_py3.10_pytorch_release_2.8.0
+#rocm/pytorch:rocm7.1.1_ubuntu22.04_py3.10_pytorch_release_2.8.0
+ARG GPU_ARCH="gfx940"
 #RUN echo ${AMD_GPU_ARCH}
 FROM ${BASE_IMAGE}
 
@@ -8,12 +8,12 @@ FROM ${BASE_IMAGE}
 #   - Ubuntu: 22.04
 #   - Docker Client: 20.10.8
 # ROCm:
-#   - ROCm: 7.2
+#   - ROCm: 7.1
 # Lib:
 #   - torch: 2.8.0
-#   - rccl: 2.18.3+hip6.0 develop:7e1cbb4
-#   - hipblaslt: release-staging/rocm-rel-6.2
-#   - rocblas: release-staging/rocm-rel-6.2
+#   - rccl: 7.1
+#   - hipblaslt: 7.1
+#   - rocblas: 7.1
 #   - openmpi: 5.0.9
 #   - UCX: 1.19.0
 # Intel:
@@ -177,14 +177,14 @@ WORKDIR ${SB_HOME}
 
 ADD third_party third_party
 #RUN echo  ${AMD_GPU_ARCH}
-RUN make  ROCM_VER=rocm-7.2.0 AMD_GPU_ARCH=${GPU_ARCH}  -C third_party rocm -o cpu_hpl -o cpu_stream 
+RUN make  ROCM_VER=rocm-7.1.1 AMD_GPU_ARCH=${GPU_ARCH}  -C third_party rocm -o cpu_hpl -o cpu_stream 
 
 # Install transformer_engine
 RUN cd /tmp \
-    && wget https://repo.radeon.com/rocm/manylinux/rocm-rel-7.2/transformer_engine-2.4.0-py3-none-any.whl \
-    && wget https://repo.radeon.com/rocm/manylinux/rocm-rel-7.2/transformer_engine_rocm-2.4.0-py3-none-manylinux_2_28_x86_64.whl \
-    && wget https://repo.radeon.com/rocm/manylinux/rocm-rel-7.2/transformer_engine_torch-2.4.0.tar.gz \
-    && pip install --no-build-isolation ./transformer_engine-2.4.0-py3-none-any.whl ./transformer_engine_rocm-2.4.0-py3-none-manylinux_2_28_x86_64.whl ./transformer_engine_torch-2.4.0.tar.gz \
+    && wget https://repo.radeon.com/rocm/manylinux/rocm-rel-7.1.1/transformer_engine-2.2.0-py3-none-any.whl \
+    && wget https://repo.radeon.com/rocm/manylinux/rocm-rel-7.1.1/transformer_engine_rocm-2.2.0-py3-none-manylinux_2_28_x86_64.whl \
+    && wget https://repo.radeon.com/rocm/manylinux/rocm-rel-7.1.1/transformer_engine_torch-2.2.0.tar.gz \
+    && pip install --no-build-isolation ./transformer_engine-2.2.0-py3-none-any.whl ./transformer_engine_rocm-2.2.0-py3-none-manylinux_2_28_x86_64.whl ./transformer_engine_torch-2.2.0.tar.gz \
     && rm *.whl  *.tar.gz
 
 ADD . .
