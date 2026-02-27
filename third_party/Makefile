@@ -169,6 +169,7 @@ rocm_hipblaslt: sb_micro_path
 # The version we use is the released tag which is consistent with the rocm version in the environment or docker.
 rocm_bandwidthTest: sb_micro_path
 	apt-get install rocm-bandwidth-test
+	cp -v ./rocm-bandwidth-test $(SB_MICRO_PATH)/bin/
 #       git clone https://github.com/ROCm/rocm_bandwidth_test.git  
 #       cd rocm_bandwidth_test 
 #       git submodule update --init --recursive

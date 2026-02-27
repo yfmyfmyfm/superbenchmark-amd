@@ -391,8 +391,10 @@ class AmdDeviceManager(DeviceManager):
             power_measure = rocml.amdsmi_get_power_info(self._device_handlers[idx])
         except Exception as err:
             logger.warning('Get device power failed: {}'.format(str(err)))
-            return None
-        return int(power_measure['average_socket_power'])
+        #     return None
+        # return int(power_measure['average_socket_power'])
+        # in amdsmi library, the average_socket_power could be N/A. so we use current_socket_power for measurement.  
+        return int(power_measure['current_socket_power'])
 
     def get_device_power_limit(self, idx):
         """Get the power management limit of device, unit: watt.

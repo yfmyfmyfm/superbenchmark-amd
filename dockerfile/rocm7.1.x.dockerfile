@@ -179,6 +179,8 @@ ADD third_party third_party
 #RUN echo  ${AMD_GPU_ARCH}
 RUN make  ROCM_VER=rocm-7.1.1 AMD_GPU_ARCH=${GPU_ARCH}  -C third_party rocm -o cpu_hpl -o cpu_stream 
 
+RUN cp superbench/benchmarks/micro_benchmarks/*.cfg ${SB_MICRO_PATH}/bin
+
 # Install transformer_engine
 RUN cd /tmp \
     && wget https://repo.radeon.com/rocm/manylinux/rocm-rel-7.1.1/transformer_engine-2.2.0-py3-none-any.whl \
